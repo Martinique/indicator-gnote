@@ -1,0 +1,129 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+"""
+MIT License
+
+Copyright (c) 2020 DJ Maraz <maraz@maniacland.net>
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+"""
+
+# Debian/Ubuntu dependencies: python3(>=3.5) python3-lxml python3-gi gnote
+
+import os
+import sys
+import argparse
+import subprocess
+from lxml import etree
+import gi
+gi.require_version('Gtk', '3.0')
+gi.require_version('AppIndicator3', '0.1')
+from gi.repository import AppIndicator3, Gtk, Gio
+
+class IndicatorGnote:
+  def __init__(self, path, count):
+    self.path = path
+    self.count = count
+    # Create directory if missing (before first run of Gnote):
+    os.makedirs(path, mode=0o700, exist_ok=True)
+    self.ind = AppIndicator3.Indicator.new('indicator-gnote', 'gnote', AppIndicator3.IndicatorCategory.APPLICATION_STATUS)
+    self.ind.set_status(AppIndicator3.IndicatorStatus.ACTIVE)
+    self.ind.set_title('Gnote Indicator')
+    self.update_menu()
+    # Monitor changes to notes:
+    self.monitor = Gio.File.new_for_path(path).monitor_directory(Gio.FileMonitorFlags.SEND_MOVED, None)
+    self.monitor.connect('changed', self.on_notes_changed)
+
+  def create_menu_item(self, label, icon_name=None):
+    if icon_name:
+      item = Gtk.ImageMenuItem()
+      image = Gtk.Image()
+      image.set_from_icon_name(icon_name, Gtk.IconSize.MENU)
+      item.set_image(image)
+      item.set_always_show_image(True)
+    else: item = Gtk.MenuItem()
+    item.set_label(label)
+    return item
+
+  def on_note_click(self, widget, note):
+    # None creates a new one, False opens the search:
+    if note is None: subprocess.Popen(['gnote','--new-note'])
+    elif note is False: subprocess.Popen(['gnote'])
+    else:
+      print("Opening '%s'." % note)
+      subprocess.Popen(['gnote', '--open-note', note])
+
+  def on_notes_changed(self, monitor, file, other_file, event_type):
+    if event_type == Gio.FileMonitorEvent.CHANGES_DONE_HINT and not file.get_path().endswith('.tmp'):
+      print('Notes changed, updating menu.')
+      self.update_menu()
+
+  def update_menu(self):
+    menu = Gtk.Menu.new()
+    self.ind.set_menu(menu)
+    item = self.create_menu_item('Create new note', 'document-new')
+    item.connect('activate', self.on_note_click, None)
+    menu.append(item)
+    item = self.create_menu_item('Search all notes', 'edit-find')
+    item.connect('activate', self.on_note_click, False)
+    menu.append(item)
+    menu.append(Gtk.SeparatorMenuItem.new())
+    # Note that modification times are from files, not the XML data in them.
+    # It'd be ridiculously heavy to parse all files every time one changes.
+    notes = []
+    with os.scandir(self.path) as files:
+      for f in files:
+        if f.is_file() and f.name.endswith('.note'): notes.append((f.path, f.stat().st_mtime))
+    notes.sort(key=lambda x: x[1], reverse=True)
+    n = 0
+    for note in notes:
+      # Note that unreadable, invalid and template notes get skipped here:
+      try:
+        xml = etree.parse(note[0])
+        if xml.xpath("//*[local-name()='tags']/*[text()='system:template']"): continue
+        t = xml.xpath("//*[local-name()='title']")[0].text
+      except: continue
+      item = self.create_menu_item(t)
+      item.connect('activate', self.on_note_click, t)
+      menu.append(item)
+      n += 1
+      if n == self.count: break
+    if not n:
+      item = self.create_menu_item("You don't have any notes")
+      item.set_sensitive(False)
+      menu.append(item)
+    menu.append(Gtk.SeparatorMenuItem.new())
+    item = self.create_menu_item('Quit', 'gtk-quit')
+    item.connect('activate', Gtk.main_quit)
+    menu.append(item)
+    menu.show_all()
+
+if __name__ == '__main__':
+  parser = argparse.ArgumentParser(description='Indicator app listing most recently edited Gnote notes')
+  parser.add_argument('-c', '--count', type=int, metavar='N', default=10, help='maximum number of notes displayed (default 10)')
+  parser.add_argument('--note-path', metavar='DIR', default=os.path.join(os.getenv('HOME'),'.local/share/gnote'), help='specify note directory')
+  args = parser.parse_args()
+  # Check that Gnote is installed:
+  try: subprocess.check_call(['which', 'gnote'], stdout=subprocess.DEVNULL)
+  except subprocess.CalledProcessError:
+    print('Gnote not found.')
+    sys.exit(1)
+  i = IndicatorGnote(args.note_path, args.count)
+  Gtk.main()
