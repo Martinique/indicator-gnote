@@ -3,7 +3,7 @@ Indicator menu for Gnote written in Python
 
 Installing:
 
-    wget 'https://raw.githubusercontent.com/Martinique/indicator-gnote/master/indicator-gnote' -O indicator-gnote
+    wget https://raw.githubusercontent.com/Martinique/indicator-gnote/master/indicator-gnote
     chmod +x indicator-gnote
     sudo mv -f indicator-gnote /usr/local/bin
 
