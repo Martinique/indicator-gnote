@@ -1,9 +1,9 @@
 # indicator-gnote
-Indicator menu for Gnote written in Python
+Indicator menu for Gnote, written in Python
 
 Installing:
 
-    wget https://raw.githubusercontent.com/Martinique/indicator-gnote/master/indicator-gnote
+    wget https://github.com/Martinique/indicator-gnote/raw/master/indicator-gnote
     chmod +x indicator-gnote
     sudo mv -f indicator-gnote /usr/local/bin
 
