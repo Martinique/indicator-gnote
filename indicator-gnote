@@ -71,7 +71,7 @@ class IndicatorGnote:
       subprocess.Popen(['gnote', '--open-note', note])
 
   def on_notes_changed(self, monitor, file, other_file, event_type):
-    if event_type == Gio.FileMonitorEvent.CHANGES_DONE_HINT and not file.get_path().endswith('.tmp'):
+    if event_type == Gio.FileMonitorEvent.CHANGES_DONE_HINT and file.get_path().endswith('.note'):
       print('Notes changed, updating menu.')
       self.update_menu()
 
