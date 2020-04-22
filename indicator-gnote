@@ -4,7 +4,7 @@
 """
 MIT License
 
-Copyright (c) 2020 Martinique
+Copyright (c) 2020 DJ Maraz <maraz@maniacland.net>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -25,18 +25,42 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
-# Debian/Ubuntu dependencies: python3(>=3.5) python3-lxml python3-gi gnote
+# Debian/Ubuntu dependencies: python3(>=3.5) python3-gi gnote
 
 import os
 import sys
 import argparse
 import subprocess
-from lxml import etree
+from xml.parsers import expat
 import gi
 gi.require_version('Gtk', '3.0')
 gi.require_version('AppIndicator3', '0.1')
 from gi.repository import AppIndicator3, Gtk, Gio
 
+# Minimalist parser to extract data from XML notes (I got fed up with namespaces):
+class NoteParser:
+  def __init__(self, file):
+    p = expat.ParserCreate('UTF-8', None)
+    p.StartElementHandler = self.start
+    p.EndElementHandler = self.end
+    p.CharacterDataHandler = self.char
+    p.buffer_text = True
+    self.title = None
+    self.template = False
+    self.name = None
+    try: f = open(file, 'rb')
+    except:
+      print('Failed to open %s' % file)
+      raise
+    else:
+      try: p.ParseFile(f)
+      finally: f.close()
+  def start(self, name, attrs): self.name = name
+  def end(self, name): self.name = None
+  def char(self, data):
+    if self.name == 'title': self.title = data
+    elif self.name == 'tag' and data == 'system:template': self.template = True
+            
 class IndicatorGnote:
   def __init__(self, path, count):
     self.path = path
@@ -94,14 +118,12 @@ class IndicatorGnote:
     notes.sort(key=lambda x: x[1], reverse=True)
     n = 0
     for note in notes:
-      # Note that unreadable, invalid and template notes get skipped here:
-      try:
-        xml = etree.parse(note[0])
-        if xml.xpath("//*[local-name()='tags']/*[text()='system:template']"): continue
-        t = xml.xpath("//*[local-name()='title']")[0].text
+      # Unreadable, invalid and template notes get skipped here:
+      try: data = NoteParser(note[0])
       except: continue
-      item = self.create_menu_item(t)
-      item.connect('activate', self.on_note_click, t)
+      if data.template or not data.title: continue
+      item = self.create_menu_item(data.title)
+      item.connect('activate', self.on_note_click, data.title)
       menu.append(item)
       n += 1
       if n == self.count: break
