@@ -120,7 +120,7 @@ class IndicatorGnote:
     for note in notes:
       # Unreadable, invalid and template notes get skipped here:
       try: data = NoteParser(note[0])
-      except: continue
+      except Exception: continue
       if data.template or not data.title: continue
       item = self.create_menu_item(data.title)
       item.connect('activate', self.on_note_click, data.title)
