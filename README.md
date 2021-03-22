@@ -14,3 +14,7 @@ Usage:
 To set maximum number of notes displayed (default 10), use -c (or --count):
 
      indicator-gnote -c 20
+
+If you get "Namespace AppIndicator3 not available", you need an additional package:
+
+     sudo apt install gir1.2-appindicator3-0.1
