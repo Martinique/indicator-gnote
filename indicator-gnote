@@ -84,7 +84,7 @@ class IndicatorGnote:
       hbox.pack_start(image, False, False, 0)
       hbox.pack_start(Gtk.Label(label=label), False, False, 0)
       item.add(hbox)
-    else: item = Gtk.MenuItem(label)
+    else: item = Gtk.MenuItem(label=label)
     return item
 
   def on_note_click(self, widget, note):
