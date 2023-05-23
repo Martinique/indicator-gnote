@@ -67,7 +67,10 @@ class IndicatorGnote:
     self.count = count
     # Create directory if missing (before first run of Gnote):
     os.makedirs(path, mode=0o700, exist_ok=True)
-    self.ind = AppIndicator3.Indicator.new('indicator-gnote', 'gnote', AppIndicator3.IndicatorCategory.APPLICATION_STATUS)
+    # Fall back to old icon name:
+    icon = 'org.gnome.Gnote'
+    if not Gtk.IconTheme.get_default().has_icon(icon): icon = 'gnote'
+    self.ind = AppIndicator3.Indicator.new('indicator-gnote', icon, AppIndicator3.IndicatorCategory.APPLICATION_STATUS)
     self.ind.set_status(AppIndicator3.IndicatorStatus.ACTIVE)
     self.ind.set_title('Gnote Indicator')
     self.update_menu()
