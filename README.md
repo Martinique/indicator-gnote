@@ -1,5 +1,5 @@
 # indicator-gnote
-Indicator menu for Gnote, written in Python
+Indicator menu for [Gnote](https://wiki.gnome.org/Apps/Gnote), written in Python
 
 Installing:
 
